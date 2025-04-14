@@ -88,6 +88,10 @@ class MultiAgentResourceEnv(gym.Env):
             "agent_2": {"wood": 0, "stone": 0, "iron": 0, "diamond": 0}
         }
 
+        self.collected_flags = {}
+        for res_name, pos_list in self.resources.items():
+            self.collected_flags[res_name] = [False] * len(pos_list)
+
         return self.agent_positions
 
     def step(self, agent, action):
@@ -106,11 +110,12 @@ class MultiAgentResourceEnv(gym.Env):
         message = ""
 
         for res_name, pos_list in self.resources.items():
-            for pos in pos_list:
-                if np.array_equal(self.agent_positions[agent], pos):
+            for i, pos in enumerate(pos_list):
+                if np.array_equal(self.agent_positions[agent], pos) and not self.collected_flags[res_name][i]:
                     if self._can_collect(res_name):
                         self.collected_resources[res_name] += 1
                         self.collection_log[agent][res_name] += 1
+                        self.collected_flags[res_name][i] = True  # ✅ 标记此位置已收集
                         reward = 10
                         message = f"{agent} 成功收集了 {res_name}!"
                     else:
@@ -146,9 +151,10 @@ class MultiAgentResourceEnv(gym.Env):
             for y in range(self.grid_size):
                 pygame.draw.rect(screen, (200, 200, 200), (y * cell_size, x * cell_size, cell_size, cell_size), 1)
 
-        for resource, pos_list in self.resources.items():
-            for pos in pos_list:
-                screen.blit(self.assets[resource], (pos[1] * cell_size, pos[0] * cell_size))
+        for res_name, pos_list in self.resources.items():
+            for i, pos in enumerate(pos_list):
+                if not self.collected_flags[res_name][i]:
+                    screen.blit(self.assets[res_name], (pos[1] * cell_size, pos[0] * cell_size))
 
         screen.blit(self.assets["agent_1"], (self.agent_positions["agent_1"][1] * cell_size,
                                              self.agent_positions["agent_1"][0] * cell_size))
