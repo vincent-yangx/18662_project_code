@@ -65,10 +65,12 @@ while not done:
                                 collected_by[res] = agent
 
                     print(f"🧺 当前已收集资源: {env.unwrapped.collected_resources}")
-                    print("🔍 资源采集记录:")
-                    for res in sorted(env.unwrapped.collected_resources):
-                        who = collected_by.get(res, "未知")
-                        print(f"  - {res}: {who}")
+                    print("🧺 当前资源仓库：")
+                    for res in ["wood", "stone", "iron", "diamond"]:
+                        total = env.unwrapped.collected_resources[res]
+                        a1 = env.unwrapped.collection_log["agent_1"][res]
+                        a2 = env.unwrapped.collection_log["agent_2"][res]
+                        print(f"  - {res}: 总计 {total}，其中 agent_1 收集了 {a1} 次，agent_2 收集了 {a2} 次")
 
                     if done:
                         print("\n🎉 游戏结束！")

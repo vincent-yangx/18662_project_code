@@ -45,6 +45,12 @@ class MultiAgentResourceEnv(gym.Env):
         self.collected_resources = set()
         self.reset()
 
+        self.collected_resources = {"wood": 0, "stone": 0, "iron": 0, "diamond": 0}
+        self.collection_log = {
+            "agent_1": {"wood": 0, "stone": 0, "iron": 0, "diamond": 0},
+            "agent_2": {"wood": 0, "stone": 0, "iron": 0, "diamond": 0}
+        }
+
     def reset(self):
         self.agent_positions = {
             "agent_1": np.array([0, 0]),
@@ -75,6 +81,13 @@ class MultiAgentResourceEnv(gym.Env):
 
         # self.collected_resources = {"agent_1": set(), "agent_2": set()}
         self.collected_resources = set()
+
+        self.collected_resources = {"wood": 0, "stone": 0, "iron": 0, "diamond": 0}
+        self.collection_log = {
+            "agent_1": {"wood": 0, "stone": 0, "iron": 0, "diamond": 0},
+            "agent_2": {"wood": 0, "stone": 0, "iron": 0, "diamond": 0}
+        }
+
         return self.agent_positions
 
     def step(self, agent, action):
@@ -95,16 +108,17 @@ class MultiAgentResourceEnv(gym.Env):
         for res_name, pos_list in self.resources.items():
             for pos in pos_list:
                 if np.array_equal(self.agent_positions[agent], pos):
-                    if self._can_collect(res_name) and res_name not in self.collected_resources:
-                        self.collected_resources.add(res_name)
+                    if self._can_collect(res_name):
+                        self.collected_resources[res_name] += 1
+                        self.collection_log[agent][res_name] += 1
                         reward = 10
                         message = f"{agent} 成功收集了 {res_name}!"
-                    elif res_name not in self.collected_resources:
+                    else:
                         message = f"⚠️ {agent} 未满足收集 {res_name} 的条件!"
 
-        if {"wood", "stone", "iron", "diamond"}.issubset(self.collected_resources):
+        if all(v > 0 for v in self.collected_resources.values()):
             done = True
-            message = f"🎯 {agent} 触发胜利！所有资源已被收集！"
+            message += f"\n🎯 {agent} 触发胜利！每种资源至少收集了一次！"
 
         return self.agent_positions, reward, done, message
 
@@ -115,7 +129,8 @@ class MultiAgentResourceEnv(gym.Env):
             "iron": {"wood", "stone"},
             "diamond": {"wood", "stone", "iron"}
         }
-        return required_resources[resource].issubset(self.collected_resources)
+        # 若所有要求资源至少收集一次，则允许
+        return all(self.collected_resources[r] > 0 for r in required_resources[resource])
 
     def render(self, screen=None):
         if screen is None:
