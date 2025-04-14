@@ -51,12 +51,27 @@ class MultiAgentResourceEnv(gym.Env):
             "agent_2": np.array([self.grid_size - 1, self.grid_size - 1])
         }
 
-        for resource in self.resources:
-            while True:
-                position = np.random.randint(0, self.grid_size, size=(2,))
-                if not any(np.array_equal(position, pos) for pos in self.agent_positions.values()):
-                    self.resources[resource] = position
-                    break
+        # 定义每种资源的数量
+        self.resource_counts = {
+            "wood": 3,
+            "stone": 2,
+            "iron": 2,
+            "diamond": 1
+        }
+
+        # 初始化资源位置：资源名 -> list of positions
+        self.resources = {}
+
+        for res_name, count in self.resource_counts.items():
+            self.resources[res_name] = []
+            for _ in range(count):
+                while True:
+                    pos = np.random.randint(0, self.grid_size, size=(2,))
+                    if not any(np.array_equal(pos, p) for p in self.agent_positions.values()) and \
+                            not any(
+                                np.array_equal(pos, existing) for lst in self.resources.values() for existing in lst):
+                        self.resources[res_name].append(pos)
+                        break
 
         # self.collected_resources = {"agent_1": set(), "agent_2": set()}
         self.collected_resources = set()
@@ -77,14 +92,15 @@ class MultiAgentResourceEnv(gym.Env):
         done = False
         message = ""
 
-        for resource, position in self.resources.items():
-            if np.array_equal(self.agent_positions[agent], position):
-                if self._can_collect(resource) and resource not in self.collected_resources:
-                    self.collected_resources.add(resource)
-                    reward = 10
-                    message = f"{agent} 成功收集了 {resource}!"
-                else:
-                    message = f"⚠️ {agent} 未满足收集 {resource} 的条件!"
+        for res_name, pos_list in self.resources.items():
+            for pos in pos_list:
+                if np.array_equal(self.agent_positions[agent], pos):
+                    if self._can_collect(res_name) and res_name not in self.collected_resources:
+                        self.collected_resources.add(res_name)
+                        reward = 10
+                        message = f"{agent} 成功收集了 {res_name}!"
+                    elif res_name not in self.collected_resources:
+                        message = f"⚠️ {agent} 未满足收集 {res_name} 的条件!"
 
         if {"wood", "stone", "iron", "diamond"}.issubset(self.collected_resources):
             done = True
@@ -115,8 +131,9 @@ class MultiAgentResourceEnv(gym.Env):
             for y in range(self.grid_size):
                 pygame.draw.rect(screen, (200, 200, 200), (y * cell_size, x * cell_size, cell_size, cell_size), 1)
 
-        for resource, pos in self.resources.items():
-            screen.blit(self.assets[resource], (pos[1] * cell_size, pos[0] * cell_size))
+        for resource, pos_list in self.resources.items():
+            for pos in pos_list:
+                screen.blit(self.assets[resource], (pos[1] * cell_size, pos[0] * cell_size))
 
         screen.blit(self.assets["agent_1"], (self.agent_positions["agent_1"][1] * cell_size,
                                              self.agent_positions["agent_1"][0] * cell_size))
