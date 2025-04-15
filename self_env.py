@@ -16,18 +16,21 @@ class MultiAgentResourceEnv(gym.Env):
 
     def __init__(self):
         super(MultiAgentResourceEnv, self).__init__()
-
+        self.agents = ["agent_1", "agent_2", "agent_3", "agent_4"]
         self.grid_size = 20
         self.observation_space = spaces.Dict({
-            "agent_1": spaces.Box(low=0, high=self.grid_size - 1, shape=(2,), dtype=np.int32),
-            "agent_2": spaces.Box(low=0, high=self.grid_size - 1, shape=(2,), dtype=np.int32)
+            agent: spaces.Box(low=0, high=self.grid_size - 1, shape=(2,), dtype=np.int32)
+            for agent in self.agents
         })
+
         self.action_space = spaces.Discrete(4)
 
         png_size = 30
         self.assets = {
             "agent_1": pygame.transform.scale(pygame.image.load("assets/player.png"), (png_size, png_size)),
             "agent_2": pygame.transform.scale(pygame.image.load("assets/player.png"), (png_size, png_size)),
+            "agent_3": pygame.transform.scale(pygame.image.load("assets/player.png"), (png_size, png_size)),
+            "agent_4": pygame.transform.scale(pygame.image.load("assets/player.png"), (png_size, png_size)),
             "wood": pygame.transform.scale(pygame.image.load("assets/wood.png"), (png_size, png_size)),
             "stone": pygame.transform.scale(pygame.image.load("assets/stone.png"), (png_size, png_size)),
             "iron": pygame.transform.scale(pygame.image.load("assets/iron.png"), (png_size, png_size)),
@@ -46,16 +49,10 @@ class MultiAgentResourceEnv(gym.Env):
         self.reset()
 
         self.collected_resources = {"wood": 0, "stone": 0, "iron": 0, "diamond": 0}
-        self.collection_log = {
-            "agent_1": {"wood": 0, "stone": 0, "iron": 0, "diamond": 0},
-            "agent_2": {"wood": 0, "stone": 0, "iron": 0, "diamond": 0}
-        }
 
     def reset(self):
-        self.agent_positions = {
-            "agent_1": np.array([0, 0]),
-            "agent_2": np.array([self.grid_size - 1, self.grid_size - 1])
-        }
+        self.agent_positions = {agent: np.array([0, 0]) for agent in self.agents}
+
 
         # 定义每种资源的数量
         self.resource_counts = {
@@ -84,8 +81,8 @@ class MultiAgentResourceEnv(gym.Env):
 
         self.collected_resources = {"wood": 0, "stone": 0, "iron": 0, "diamond": 0}
         self.collection_log = {
-            "agent_1": {"wood": 0, "stone": 0, "iron": 0, "diamond": 0},
-            "agent_2": {"wood": 0, "stone": 0, "iron": 0, "diamond": 0}
+            agent: {res: 0 for res in ["wood", "stone", "iron", "diamond"]}
+            for agent in self.agents
         }
 
         self.collected_flags = {}
@@ -156,10 +153,9 @@ class MultiAgentResourceEnv(gym.Env):
                 if not self.collected_flags[res_name][i]:
                     screen.blit(self.assets[res_name], (pos[1] * cell_size, pos[0] * cell_size))
 
-        screen.blit(self.assets["agent_1"], (self.agent_positions["agent_1"][1] * cell_size,
-                                             self.agent_positions["agent_1"][0] * cell_size))
-        screen.blit(self.assets["agent_2"], (self.agent_positions["agent_2"][1] * cell_size,
-                                             self.agent_positions["agent_2"][0] * cell_size))
+        for agent in self.agents:
+            screen.blit(self.assets["agent_1"], (self.agent_positions[agent][1] * cell_size,
+                                                 self.agent_positions[agent][0] * cell_size))
 
         pygame.display.flip()
 
@@ -216,8 +212,16 @@ def main():
                     print(message)
                     env.render(screen)
 
-        clock.tick(1000)
+        # ✅ 移到事件循环外，每帧执行一次 AI agent 动作
+        for agent in ["agent_3", "agent_4"]:
+            action = np.random.randint(0, 4)
+            _, reward, done, message = env.step(agent, action)
+            if reward > 0 or "未满足" in message:
+                print(f"{agent} moved to {env.agent_positions[agent]}")
+                print(message)
+                env.render(screen)
 
+        clock.tick(50)  # 建议稍微调慢，1000 太快了
 
 if __name__ == "__main__":
 
