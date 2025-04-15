@@ -27,7 +27,7 @@ class MultiAgentResourceEnv(gym.Env):
         png_size = 30
         self.assets = {
             "agent_1": pygame.transform.scale(pygame.image.load("assets/player.png"), (png_size, png_size)),
-            "agent_2": pygame.transform.scale(pygame.image.load("assets/zombie.png"), (png_size, png_size)),
+            "agent_2": pygame.transform.scale(pygame.image.load("assets/player.png"), (png_size, png_size)),
             "wood": pygame.transform.scale(pygame.image.load("assets/wood.png"), (png_size, png_size)),
             "stone": pygame.transform.scale(pygame.image.load("assets/stone.png"), (png_size, png_size)),
             "iron": pygame.transform.scale(pygame.image.load("assets/iron.png"), (png_size, png_size)),
