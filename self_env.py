@@ -17,7 +17,7 @@ class MultiAgentResourceEnv(gym.Env):
     def __init__(self):
         super(MultiAgentResourceEnv, self).__init__()
         self.agents = ["agent_1", "agent_2", "agent_3", "agent_4"]
-        self.grid_size = 20
+        self.grid_size = 30
         self.observation_space = spaces.Dict({
             agent: spaces.Box(low=0, high=self.grid_size - 1, shape=(2,), dtype=np.int32)
             for agent in self.agents
@@ -56,10 +56,10 @@ class MultiAgentResourceEnv(gym.Env):
 
         # 定义每种资源的数量
         self.resource_counts = {
-            "wood": 3,
-            "stone": 2,
-            "iron": 2,
-            "diamond": 1
+            "wood": 20,
+            "stone": 16,
+            "iron": 12,
+            "diamond": 4
         }
 
         # 初始化资源位置：资源名 -> list of positions
