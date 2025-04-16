@@ -72,6 +72,10 @@ while not done:
                         for a in all_agents:
                             count = env.unwrapped.collection_log[a][res]
                             print(f"    {res}: {a} 收集了 {count} 次")
+                    print("📦 当前仓库资源：")
+                    for res in ["wood", "stone", "iron", "diamond"]:
+                        print(f"  - {res}: {env.unwrapped.warehouse_storage[res]}")
+
                     if done:
                         print("\n🎉 游戏结束！")
 
@@ -94,6 +98,11 @@ while not done:
                 for a in all_agents:
                     count = env.unwrapped.collection_log[a][res]
                     print(f"    {res}: {a} 收集了 {count} 次")
+
+            print("📦 当前仓库资源：")
+            for res in ["wood", "stone", "iron", "diamond"]:
+                print(f"  - {res}: {env.unwrapped.warehouse_storage[res]}")
+
             if done:
                 print("\n🎉 游戏结束！")
 

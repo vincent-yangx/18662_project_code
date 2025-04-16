@@ -44,6 +44,19 @@ class MultiAgentResourceEnv(gym.Env):
             "diamond": np.random.randint(0, self.grid_size, size=(2,))
         }
 
+        self.warehouse_position = np.random.randint(0, self.grid_size, size=(2,))  # 可以改成任意固定位置
+        self.assets["warehouse"] = pygame.transform.scale(pygame.image.load("assets/warehouse.png"),
+                                                          (png_size, png_size))
+
+        # 仓库中的资源总量
+        self.warehouse_storage = {"wood": 0, "stone": 0, "iron": 0, "diamond": 0}
+
+        # 每个 agent 的背包资源（即个人收集但未存入仓库的）
+        self.agent_backpack = {
+            agent: {"wood": 0, "stone": 0, "iron": 0, "diamond": 0}
+            for agent in self.agents
+        }
+
         # self.collected_resources = {"agent_1": set(), "agent_2": set()}
         self.collected_resources = set()
         self.reset()
@@ -109,8 +122,8 @@ class MultiAgentResourceEnv(gym.Env):
         for res_name, pos_list in self.resources.items():
             for i, pos in enumerate(pos_list):
                 if np.array_equal(self.agent_positions[agent], pos) and not self.collected_flags[res_name][i]:
-                    if self._can_collect(res_name):
-                        self.collected_resources[res_name] += 1
+                    if self._can_collect(agent, res_name):
+                        self.agent_backpack[agent][res_name] += 1
                         self.collection_log[agent][res_name] += 1
                         self.collected_flags[res_name][i] = True  # ✅ 标记此位置已收集
                         reward = 10
@@ -122,17 +135,29 @@ class MultiAgentResourceEnv(gym.Env):
             done = True
             message += f"\n🎯 {agent} 触发胜利！每种资源至少收集了一次！"
 
+        # 检查是否进入仓库位置
+        if np.array_equal(self.agent_positions[agent], self.warehouse_position):
+            for res in ["wood", "stone", "iron", "diamond"]:
+                amount = self.agent_backpack[agent][res]
+                if amount > 0:
+                    self.warehouse_storage[res] += amount
+                    self.agent_backpack[agent][res] = 0
+            message += f"\n🏠 {agent} 将资源存入仓库！"
+
         return self.agent_positions, reward, done, message
 
-    def _can_collect(self, resource):
+    def _can_collect(self, agent, resource):
         required_resources = {
             "wood": set(),
             "stone": {"wood"},
             "iron": {"wood", "stone"},
             "diamond": {"wood", "stone", "iron"}
         }
-        # 若所有要求资源至少收集一次，则允许
-        return all(self.collected_resources[r] > 0 for r in required_resources[resource])
+
+        for req in required_resources[resource]:
+            if self.agent_backpack[agent][req] <= 0:
+                return False
+        return True
 
     def render(self, screen=None):
         if screen is None:
@@ -156,6 +181,9 @@ class MultiAgentResourceEnv(gym.Env):
         for agent in self.agents:
             screen.blit(self.assets["agent_1"], (self.agent_positions[agent][1] * cell_size,
                                                  self.agent_positions[agent][0] * cell_size))
+        # 渲染仓库图标
+        screen.blit(self.assets["warehouse"], (self.warehouse_position[1] * cell_size,
+                                               self.warehouse_position[0] * cell_size))
 
         pygame.display.flip()
 
