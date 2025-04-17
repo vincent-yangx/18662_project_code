@@ -7,21 +7,22 @@ import numpy as np
 
 
 def get_backpack_vec(agent):
-    return [env.unwrapped.agent_backpack[agent][res] for res in ["wood", "stone", "iron", "diamond"]]
+    return [env.unwrapped.agent_backpack[agent][res] for res in res_order]
 
 def print_warehouse_info():
     print("\n📦 仓库资源总量:")
-    total_vec = [env.unwrapped.warehouse_storage[res] for res in ["wood", "stone", "iron", "diamond"]]
+    total_vec = [env.unwrapped.warehouse_storage[res] for res in res_order]
     print(f"  [wood, stone, iron, diamond]: {total_vec}")
 
     print("\n📦 仓库资源贡献来源:")
     for a in all_agents:
-        contrib_vec = [env.unwrapped.collection_log[a][res] for res in ["wood", "stone", "iron", "diamond"]]
+        contrib_vec = [env.unwrapped.collection_log[a][res] for res in res_order]
         print(f"  {a}: {contrib_vec}")
 
 # 初始化 pygame 和环境
 pygame.init()
 env = gym.make('CustomMultiAgentEnv-v0')
+res_order = ["wood", "stone", "iron", "coal", "diamond"]
 screen = pygame.display.set_mode((env.unwrapped.grid_size * 30, env.unwrapped.grid_size * 30))
 pygame.display.set_caption("🌳 资源收集游戏")
 clock = pygame.time.Clock()

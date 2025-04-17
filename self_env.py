@@ -29,11 +29,18 @@ class MultiAgentResourceEnv(gym.Env):
             agent: pygame.transform.scale(pygame.image.load("assets/player.png"), (png_size, png_size))
             for agent in self.agents
         }
-        for item in ["wood", "stone", "iron", "diamond", "warehouse"]:
+        for item in ["wood", "stone", "iron", "diamond", "warehouse","coal"]:
             self.assets[item] = pygame.transform.scale(pygame.image.load(f"assets/{item}.png"), (png_size, png_size))
 
         self.warehouse_position = np.array([0, self.grid_size - 1])
-        self.resource_counts = {"wood": 8, "stone": 6, "iron": 4, "diamond": 2}
+        self.resource_counts = {
+            "wood": 10,
+            "stone": 8,
+            "iron": 6,
+            "coal": 4,
+            "diamond": 2
+        }
+
         self.warehouse_storage = {res: 0 for res in self.resource_counts}
         self.collection_log = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
         self.agent_backpack = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
@@ -110,6 +117,7 @@ class MultiAgentResourceEnv(gym.Env):
             "wood": set(),
             "stone": {"wood"},
             "iron": {"wood", "stone"},
+            "coal": set(),
             "diamond": {"wood", "stone", "iron"}
         }
         for req in required[resource]:
