@@ -24,15 +24,14 @@ class MultiAgentResourceEnv(gym.Env):
         })
         self.action_space = spaces.Discrete(4)
 
-        png_size = 30
+        png_size = 35
         self.assets = {
             agent: pygame.transform.scale(pygame.image.load("assets/player.png"), (png_size, png_size))
             for agent in self.agents
         }
-        for item in ["wood", "stone", "iron", "diamond", "warehouse","coal"]:
+        for item in ["wood", "stone", "iron", "diamond", "warehouse","exit", "coal"]:
             self.assets[item] = pygame.transform.scale(pygame.image.load(f"assets/{item}.png"), (png_size, png_size))
 
-        self.warehouse_position = np.array([0, self.grid_size - 1])
         self.resource_counts = {
             "wood": 10,
             "stone": 8,
@@ -59,6 +58,31 @@ class MultiAgentResourceEnv(gym.Env):
 
         self.reset()
 
+    # warehouse 和 exit在一起
+    def _generate_adjacent_positions(self):
+        directions = [np.array([0, 1]), np.array([0, -1]), np.array([1, 0]), np.array([-1, 0])]
+
+        while True:
+            base = np.random.randint(0, self.grid_size, size=(2,))
+            neighbors = [base + d for d in directions]
+            neighbors = [n for n in neighbors if 0 <= n[0] < self.grid_size and 0 <= n[1] < self.grid_size]
+
+            np.random.shuffle(neighbors)  # 随机挑邻居
+
+            for adj in neighbors:
+                # 检查 base 和 adj 是否与 agent 起始点、资源点冲突
+                conflict = False
+
+                occupied_positions = list(self.agent_positions.values())
+                for lst in self.resources.values():
+                    occupied_positions += lst
+
+                if any(np.array_equal(base, pos) or np.array_equal(adj, pos) for pos in occupied_positions):
+                    conflict = True
+
+                if not conflict:
+                    return base, adj  # ✅ 成功生成一对不冲突的邻接点
+
     def reset(self):
         self.agent_positions = {agent: np.array([0, 0]) for agent in self.agents}
         self.resources = {}
@@ -70,6 +94,9 @@ class MultiAgentResourceEnv(gym.Env):
                     if not any(np.array_equal(pos, p) for p in self.agent_positions.values()) and                        not any(np.array_equal(pos, existing) for lst in self.resources.values() for existing in lst):
                         self.resources[res_name].append(pos)
                         break
+
+        self.warehouse_position, self.exit_position = self._generate_adjacent_positions()
+
 
         self.collected_flags = {res: [False]*len(pos_list) for res, pos_list in self.resources.items()}
         self.agent_backpack = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
@@ -144,22 +171,34 @@ class MultiAgentResourceEnv(gym.Env):
             if stored_any:
                 message += f"\n🏠 {agent} 将资源存入仓库！"
 
-        # if all(self.warehouse_storage[res] > 0 for res in self.resource_counts):
-        #     done = True
-        #     message += f"\n🎯 所有资源至少存入了一次，游戏结束！"
+        if np.array_equal(self.agent_positions[agent], self.exit_position):
+            # 将 warehouse 所有资源转移到 agent 背包
+            for res in self.warehouse_storage:
+                amount = self.warehouse_storage[res]
+                if amount > 0:
+                    self.agent_backpack[agent][res] += amount
+                    self.warehouse_storage[res] = 0
+
+            # 打印资源转移信息
+            message += f"\n🚪 {agent} 走入出口，领取所有仓库资源！"
+            message += f"\n🎒 {agent} 当前资源: {[self.agent_backpack[agent][res] for res in self.warehouse_storage]}"
+            message += f"\n📦 仓库当前资源: {[self.warehouse_storage[res] for res in self.warehouse_storage]}"
 
         return self.agent_positions, reward, done, message
 
     def _can_collect(self, agent, resource):
-        required = {
-            "wood": set(),
-            "stone": {"wood"},
-            "iron": {"wood", "stone"},
-            "coal": set(),
-            "diamond": {"wood", "stone", "iron"}
+        # 每个资源需要的“前置工具”
+        required_tools = {
+            "wood": set(),  # 无需工具
+            "stone": {"wood pickaxe"},
+            "coal": {"wood pickaxe"},
+            "iron": {"stone pickaxe"},
+            "diamond": {"iron pickaxe"}
         }
-        for req in required[resource]:
-            if self.agent_backpack[agent][req] <= 0:
+
+        required = required_tools.get(resource, set())
+        for tool in required:
+            if not self.tools_built.get(tool, False):
                 return False
         return True
 
@@ -183,6 +222,7 @@ class MultiAgentResourceEnv(gym.Env):
                     screen.blit(self.assets[res], (pos[1]*cell_size, pos[0]*cell_size))
 
         screen.blit(self.assets["warehouse"], (self.warehouse_position[1]*cell_size, self.warehouse_position[0]*cell_size))
+        screen.blit(self.assets["exit"], (self.exit_position[1] * cell_size, self.exit_position[0] * cell_size))
 
         for agent in self.agents:
             pos = self.agent_positions[agent]
