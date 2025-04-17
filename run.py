@@ -70,28 +70,15 @@ while not done:
                 pos, reward, agent_done, message = env.unwrapped.step(agent, action)
                 done = done or agent_done
 
-                if "成功收集了" in message or "存入仓库" in message:
+                if "成功收集了" in message:
                     print(f"\n🧭 {agent} moved to {pos[agent]}")
                     print(f"📣 {message}")
-
-                    # 打印 agent 背包资源
-                    print("\n🎒 agent 背包资源:")
-                    for a in all_agents:
-                        backpack_vec = [env.unwrapped.agent_backpack[a][res] for res in
-                                        ["wood", "stone", "iron", "diamond"]]
-                        print(f"  {a}: {backpack_vec}")
-
-                    # 打印仓库资源总量
-                    print("\n📦 仓库资源总量:")
-                    total_vec = [env.unwrapped.warehouse_storage[res] for res in ["wood", "stone", "iron", "diamond"]]
-                    print(f"  [wood, stone, iron, diamond]: {total_vec}")
-
-                    # 打印每个 agent 对仓库的贡献（来自 collection_log）
-                    print("\n📦 仓库资源贡献来源:")
-                    for a in all_agents:
-                        contrib_vec = [env.unwrapped.collection_log[a][res] for res in
-                                       ["wood", "stone", "iron", "diamond"]]
-                        print(f"  {a}: {contrib_vec}")
+                    print(f"🎒 {agent} 背包资源: {get_backpack_vec(agent)}")
+                elif "存入仓库" in message:
+                    print(f"\n🧭 {agent} moved to {pos[agent]}")
+                    print(f"📣 {message}")
+                    print_warehouse_info()
+                    print(f"🎒 {agent} 背包资源: {get_backpack_vec(agent)}")
 
                     if done:
                         print("\n🎉 游戏结束！")
@@ -104,23 +91,15 @@ while not done:
         pos, reward, agent_done, message = env.unwrapped.step(agent, action)
         done = done or agent_done
 
-        if "成功收集了" in message or "存入仓库" in message:
-            print(f"\n🤖 {agent} moved to {pos[agent]}")
+        if "成功收集了" in message:
+            print(f"\n🧭 {agent} moved to {pos[agent]}")
             print(f"📣 {message}")
-
-            print("\n🎒 agent 背包资源:")
-            for a in all_agents:
-                backpack_vec = [env.unwrapped.agent_backpack[a][res] for res in ["wood", "stone", "iron", "diamond"]]
-                print(f"  {a}: {backpack_vec}")
-
-            print("\n📦 仓库资源总量:")
-            total_vec = [env.unwrapped.warehouse_storage[res] for res in ["wood", "stone", "iron", "diamond"]]
-            print(f"  [wood, stone, iron, diamond]: {total_vec}")
-
-            print("\n📦 仓库资源贡献来源:")
-            for a in all_agents:
-                contrib_vec = [env.unwrapped.collection_log[a][res] for res in ["wood", "stone", "iron", "diamond"]]
-                print(f"  {a}: {contrib_vec}")
+            print(f"🎒 {agent} 背包资源: {get_backpack_vec(agent)}")
+        elif "存入仓库" in message:
+            print(f"\n🧭 {agent} moved to {pos[agent]}")
+            print(f"📣 {message}")
+            print_warehouse_info()
+            print(f"🎒 {agent} 背包资源: {get_backpack_vec(agent)}")
 
             if done:
                 print("\n🎉 游戏结束！")
