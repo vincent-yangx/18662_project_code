@@ -5,6 +5,20 @@ import self_env  # 注册环境
 import gym
 import numpy as np
 
+
+def get_backpack_vec(agent):
+    return [env.unwrapped.agent_backpack[agent][res] for res in ["wood", "stone", "iron", "diamond"]]
+
+def print_warehouse_info():
+    print("\n📦 仓库资源总量:")
+    total_vec = [env.unwrapped.warehouse_storage[res] for res in ["wood", "stone", "iron", "diamond"]]
+    print(f"  [wood, stone, iron, diamond]: {total_vec}")
+
+    print("\n📦 仓库资源贡献来源:")
+    for a in all_agents:
+        contrib_vec = [env.unwrapped.collection_log[a][res] for res in ["wood", "stone", "iron", "diamond"]]
+        print(f"  {a}: {contrib_vec}")
+
 # 初始化 pygame 和环境
 pygame.init()
 env = gym.make('CustomMultiAgentEnv-v0')
@@ -56,25 +70,28 @@ while not done:
                 pos, reward, agent_done, message = env.unwrapped.step(agent, action)
                 done = done or agent_done
 
-                if reward > 0 or ("未满足收集" in message):
+                if "成功收集了" in message or "存入仓库" in message:
                     print(f"\n🧭 {agent} moved to {pos[agent]}")
                     print(f"📣 {message}")
 
-                    if reward > 0:
-                        for res in ["wood", "stone", "iron", "diamond"]:
-                            if res in message:
-                                collected_by[res] = agent
+                    # 打印 agent 背包资源
+                    print("\n🎒 agent 背包资源:")
+                    for a in all_agents:
+                        backpack_vec = [env.unwrapped.agent_backpack[a][res] for res in
+                                        ["wood", "stone", "iron", "diamond"]]
+                        print(f"  {a}: {backpack_vec}")
 
-                    print(f"🧺 当前已收集资源: {env.unwrapped.collected_resources}")
-                    print("🧺 当前资源仓库：")
-                    for res in ["wood", "stone", "iron", "diamond"]:
-                        total = env.unwrapped.collected_resources[res]
-                        for a in all_agents:
-                            count = env.unwrapped.collection_log[a][res]
-                            print(f"    {res}: {a} 收集了 {count} 次")
-                    print("📦 当前仓库资源：")
-                    for res in ["wood", "stone", "iron", "diamond"]:
-                        print(f"  - {res}: {env.unwrapped.warehouse_storage[res]}")
+                    # 打印仓库资源总量
+                    print("\n📦 仓库资源总量:")
+                    total_vec = [env.unwrapped.warehouse_storage[res] for res in ["wood", "stone", "iron", "diamond"]]
+                    print(f"  [wood, stone, iron, diamond]: {total_vec}")
+
+                    # 打印每个 agent 对仓库的贡献（来自 collection_log）
+                    print("\n📦 仓库资源贡献来源:")
+                    for a in all_agents:
+                        contrib_vec = [env.unwrapped.collection_log[a][res] for res in
+                                       ["wood", "stone", "iron", "diamond"]]
+                        print(f"  {a}: {contrib_vec}")
 
                     if done:
                         print("\n🎉 游戏结束！")
@@ -87,21 +104,23 @@ while not done:
         pos, reward, agent_done, message = env.unwrapped.step(agent, action)
         done = done or agent_done
 
-        if reward > 0 or ("未满足收集" in message):
+        if "成功收集了" in message or "存入仓库" in message:
             print(f"\n🤖 {agent} moved to {pos[agent]}")
             print(f"📣 {message}")
 
-            print(f"🧺 当前已收集资源: {env.unwrapped.collected_resources}")
-            print("🧺 当前资源仓库：")
-            for res in ["wood", "stone", "iron", "diamond"]:
-                total = env.unwrapped.collected_resources[res]
-                for a in all_agents:
-                    count = env.unwrapped.collection_log[a][res]
-                    print(f"    {res}: {a} 收集了 {count} 次")
+            print("\n🎒 agent 背包资源:")
+            for a in all_agents:
+                backpack_vec = [env.unwrapped.agent_backpack[a][res] for res in ["wood", "stone", "iron", "diamond"]]
+                print(f"  {a}: {backpack_vec}")
 
-            print("📦 当前仓库资源：")
-            for res in ["wood", "stone", "iron", "diamond"]:
-                print(f"  - {res}: {env.unwrapped.warehouse_storage[res]}")
+            print("\n📦 仓库资源总量:")
+            total_vec = [env.unwrapped.warehouse_storage[res] for res in ["wood", "stone", "iron", "diamond"]]
+            print(f"  [wood, stone, iron, diamond]: {total_vec}")
+
+            print("\n📦 仓库资源贡献来源:")
+            for a in all_agents:
+                contrib_vec = [env.unwrapped.collection_log[a][res] for res in ["wood", "stone", "iron", "diamond"]]
+                print(f"  {a}: {contrib_vec}")
 
             if done:
                 print("\n🎉 游戏结束！")
