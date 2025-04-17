@@ -45,6 +45,18 @@ class MultiAgentResourceEnv(gym.Env):
         self.collection_log = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
         self.agent_backpack = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
 
+        # 工具的建造前提（资源或其他工具）
+        self.tool_prerequisite = {
+            "table": {"wood": 2},
+            "wood pickaxe": {"wood": 2, "table": 1},
+            "stone pickaxe": {"wood": 1, "stone": 1, "table": 1},
+            "furnace": {"stone": 4, "table": 1},
+            "iron pickaxe": {"coal": 1, "wood": 1, "iron": 1, "furnace": 1}
+        }
+
+        # 每种工具是否已建造（全局共享）
+        self.tools_built = {tool: False for tool in self.tool_prerequisite}
+
         self.reset()
 
     def reset(self):
@@ -63,7 +75,33 @@ class MultiAgentResourceEnv(gym.Env):
         self.agent_backpack = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
         self.warehouse_storage = {res: 0 for res in self.resource_counts}
         self.collection_log = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
+
+        self.tools_built = {tool: False for tool in self.tool_prerequisite}
+
         return self.agent_positions
+
+    def can_build_tool(self, agent, tool_name):
+        prereq = self.tool_prerequisite[tool_name]
+        for req, count in prereq.items():
+            if req in self.tools_built:
+                if not self.tools_built[req]:
+                    return False
+            else:
+                if self.agent_backpack[agent][req] < count:
+                    return False
+        return True
+
+    def build_tool(self, agent, tool_name):
+        if self.can_build_tool(agent, tool_name) and not self.tools_built[tool_name]:
+            for req, count in self.tool_prerequisite[tool_name].items():
+                if req not in self.tools_built:
+                    self.agent_backpack[agent][req] -= count  # ✅ 扣除资源
+            self.tools_built[tool_name] = True
+            return True
+        return False
+
+    def get_tool_status(self):
+        return {tool: self.tools_built[tool] for tool in self.tool_prerequisite}
 
     def step(self, agent, action):
         movement = {
