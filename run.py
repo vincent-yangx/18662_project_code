@@ -3,7 +3,7 @@ import sys
 import time
 import self_env  # 注册环境
 import gym
-import numpy as np
+# import numpy as np
 
 
 def get_backpack_vec(agent):
@@ -156,3 +156,69 @@ while not done:
         build_tool(current_agent, tool_to_build)
 
     clock.tick(10)  # 控制刷新速度
+
+
+
+
+# def build_full_llm_prompt(env):
+#     lines = []
+#
+#     lines.append("🎯 最终目标：采集到 diamond 资源。")
+#     lines.append("💡 注意：agent 走到 diamond 并成功采集即视为完成任务。")
+#     lines.append("🚪 exit 的作用是取出仓库资源，并不表示游戏胜利或结束。")
+#     lines.append("📦 仓库可以由 agent 存入资源，然后任何 agent 从 exit 取出使用。")
+#
+#     lines.append("\n📦 仓库：agent 可以将资源存入仓库（位置固定）。")
+#     lines.append("🚪 出口：agent 走到出口后可以一次性取出仓库中所有资源，并加入自己背包中。")
+#
+#     lines.append("\n=== 🔧 资源采集前提规则 ===")
+#     lines.append("1. wood 可直接采集")
+#     lines.append("2. stone 和 coal 需要 wood pickaxe")
+#     lines.append("3. iron 需要 stone pickaxe")
+#     lines.append("4. diamond 需要 iron pickaxe")
+#
+#     lines.append("\n=== 🛠️ 工具建造前提规则 ===")
+#     lines.append("table: 需要 2 wood")
+#     lines.append("wood pickaxe: 需要 2 wood + table")
+#     lines.append("stone pickaxe: 需要 1 wood + 1 stone + table")
+#     lines.append("furnace: 需要 4 stone + table")
+#     lines.append("iron pickaxe: 需要 1 coal + 1 wood + 1 iron + furnace")
+#
+#     # === Agent 状态 ===
+#     lines.append("\n=== 🤖 Agent 状态 ===")
+#     for agent in env.agents:
+#         pos = env.agent_positions[agent]
+#         backpack = env.agent_backpack[agent]
+#         backpack_str = ", ".join([f"{k}: {v}" for k, v in backpack.items()])
+#         lines.append(f"{agent} 在位置 {list(pos)}，背包资源：{backpack_str}")
+#
+#     # === 地图上的资源位置 ===
+#     lines.append("\n=== 🗺️ 地图上的资源位置（未采集） ===")
+#     for res_name, pos_list in env.resources.items():
+#         for i, pos in enumerate(pos_list):
+#             if not env.collected_flags[res_name][i]:
+#                 lines.append(f"{res_name} at {list(pos)}")
+#
+#     # === 仓库信息 ===
+#     lines.append(f"\n=== 📦 仓库 ===")
+#     lines.append(f"仓库位置: {list(env.warehouse_position)}")
+#     storage_str = ", ".join([f"{k}: {v}" for k, v in env.warehouse_storage.items()])
+#     lines.append(f"当前资源：{storage_str}")
+#
+#     # === 出口信息 ===
+#     lines.append(f"\n=== 🚪 出口 ===")
+#     lines.append(f"出口位置: {list(env.exit_position)}")
+#
+#     # === 工具建造状态 ===
+#     lines.append("\n=== 🛠️ 工具状态 ===")
+#     for tool, built in env.tools_built.items():
+#         status = "✅ 已建造" if built else "❌ 未建造"
+#         lines.append(f"{tool}: {status}")
+#
+#     return "\n".join(lines)
+#
+#
+# prompt = build_full_llm_prompt(env.unwrapped)
+# print(prompt)
+
+
