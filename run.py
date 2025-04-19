@@ -116,7 +116,7 @@ def ask_gpt_to_plan(client, env, warehouse_summary):
     return response.choices[0].message.parsed
 
 
-
+def build_tool(agent, tool_name):
     if env.unwrapped.build_tool(agent, tool_name):
         print(f"✅ {agent} 成功制造了 {tool_name}！")
     else:
@@ -216,7 +216,8 @@ while not done:
                     action = 0
 
             if action is not None:
-                pos, reward, agent_done, message = env.unwrapped.step(agent, action)
+                env.unwrapped.current_agent = agent
+                pos, reward, agent_done, message = env.unwrapped.step(action)
                 done = done or agent_done
 
                 if "成功收集了" in message:

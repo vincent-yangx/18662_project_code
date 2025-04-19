@@ -37,11 +37,11 @@ class MultiAgentResourceEnv(gym.Env):
             self.assets[item] = pygame.transform.scale(pygame.image.load(f"assets/{item}.png"), (png_size, png_size))
 
         self.resource_counts = {
-            "wood": 10,
-            "stone": 8,
-            "iron": 6,
-            "coal": 4,
-            "diamond": 2
+            "wood": 8,
+            "stone": 7,
+            "iron": 1,
+            "coal": 1,
+            "diamond": 1
         }
 
         # 工具的建造前提（资源或其他工具）
@@ -57,31 +57,6 @@ class MultiAgentResourceEnv(gym.Env):
         self.tools_built = {tool: False for tool in self.tool_prerequisite}
 
         self.reset()
-
-    # warehouse 和 exit在一起
-    # def _generate_adjacent_positions(self):
-    #     directions = [np.array([0, 1]), np.array([0, -1]), np.array([1, 0]), np.array([-1, 0])]
-    #
-    #     while True:
-    #         base = np.random.randint(0, self.grid_size, size=(2,))
-    #         neighbors = [base + d for d in directions]
-    #         neighbors = [n for n in neighbors if 0 <= n[0] < self.grid_size and 0 <= n[1] < self.grid_size]
-    #
-    #         np.random.shuffle(neighbors)  # 随机挑邻居
-    #
-    #         for adj in neighbors:
-    #             # 检查 base 和 adj 是否与 agent 起始点、资源点冲突
-    #             conflict = False
-    #
-    #             occupied_positions = list(self.agent_positions.values())
-    #             for lst in self.resources.values():
-    #                 occupied_positions += lst
-    #
-    #             if any(np.array_equal(base, pos) or np.array_equal(adj, pos) for pos in occupied_positions):
-    #                 conflict = True
-    #
-    #             if not conflict:
-    #                 return base, adj  # ✅ 成功生成一对不冲突的邻接点
 
     def get_grid_matrix(self):
         grid = np.zeros((self.grid_size, self.grid_size), dtype=np.int32)
@@ -104,7 +79,7 @@ class MultiAgentResourceEnv(gym.Env):
             for _ in range(count):
                 while True:
                     pos = np.random.randint(0, self.grid_size, size=(2,))
-                    if not any(np.array_equal(pos, p) for p in self.agent_positions.values()) and                        not any(np.array_equal(pos, existing) for lst in self.resources.values() for existing in lst):
+                    if not any(np.array_equal(pos, p) for p in self.agent_positions.values()) and not any(np.array_equal(pos, existing) for lst in self.resources.values() for existing in lst):
                         self.resources[res_name].append(pos)
                         break
 
@@ -117,10 +92,6 @@ class MultiAgentResourceEnv(gym.Env):
 
         self.collected_flags = {res: [False]*len(pos_list) for res, pos_list in self.resources.items()}
         self.shared_resource_pool = {res: 0 for res in self.resource_counts}
-
-        # self.agent_backpack = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
-        # self.warehouse_storage = {res: 0 for res in self.resource_counts}
-        # self.collection_log = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
 
         self.tools_built = {tool: False for tool in self.tool_prerequisite}
 
@@ -183,11 +154,21 @@ class MultiAgentResourceEnv(gym.Env):
         return self.agent_positions, reward, done, message
 
     def print_collected_summary(self):
-        # print("Collected Materials")
-        # for res, count in self.collected_resources.items():
-        #     print(f"- {res}: {count}")
+        return dict(self.shared_resource_pool)
 
-        return dict(self.resource_counts)
+    def collect_resource(self, agent, resource_name):
+        current_pos = self.agent_positions[agent]
+        for i, pos in enumerate(self.resources.get(resource_name, [])):
+            if not self.collected_flags[resource_name][i] and np.array_equal(current_pos, pos):
+                if self._can_collect(agent, resource_name):
+                    self.shared_resource_pool[resource_name] += 1
+                    self.collected_flags[resource_name][i] = True
+                    self.collection_log[agent][resource_name] += 1
+                    self.resource_counts[resource_name] -= 1
+                    return True, f"{agent} 成功采集 {resource_name}"
+                else:
+                    return False, f"{agent} 缺少采集 {resource_name} 所需工具"
+        return False, f"{agent} 当前格子没有 {resource_name}"
 
     def _can_collect(self, agent, resource):
         # 每个资源需要的“前置工具”
