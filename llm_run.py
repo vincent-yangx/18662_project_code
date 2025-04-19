@@ -145,15 +145,11 @@ def build_full_llm_prompt(env):
     lines.append("🛑 例如：若 table 已建造完成，不应再次采集 wood 来建造 table，更不应再次执行 create table。")
     lines.append("⛔ 若某个工具已经建造完成，请不要再采集用于该工具的材料。")
     lines.append("✅ 所有工具的建造状态见 already_built_tool 字段。")
-    lines.append("🧠 例如：如果 table 已建造完成，且 wood pickaxe 是当前推荐建造工具，请只采集 wood pickaxe 所需的材料，而不是 table 所需材料。")
-    lines.append("❌ 不要因未来工具（如 furnace 或 iron pickaxe）提前采集它们需要的材料。")
 
     lines.append("\n=== 🛠️ 工具建造配方规则 ===")
     for tool, req in env.tool_prerequisite.items():
         req_str = ", ".join(f"{k}: {v}" for k, v in req.items())
         lines.append(f"{tool} 需要：{req_str}")
-    lines.append("📌 请严格根据上面资源需求决定采集哪些资源。")
-    lines.append("❌ 不要采集工具建造不需要的资源。")
     lines.append("✅ 如果所有材料都具备，请立即执行 create 动作建造该工具。")
 
     lines.append("\n=== 🔍 当前推荐建造工具状态 ===")
@@ -245,7 +241,6 @@ def ask_gpt_to_plan(client, env, warehouse_summary):
     system_prompt = build_full_llm_prompt(env)
 
     messages = [{"role": "system", "content": system_prompt}]
-    messages += planner_history[-2:]
     messages.append({"role": "user", "content": json.dumps(planner_input)})
 
     response = client.chat.completions.create(
@@ -285,7 +280,7 @@ def main():
     env.reset()
     env.render(screen)
 
-    llm = OpenAI(api_key="your_key")  # 使用你已有的 key
+    llm = OpenAI(api_key="your key here")  # 使用你已有的 key
     steps = 0
     done = False
 
