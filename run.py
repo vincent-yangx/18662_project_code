@@ -1,3 +1,5 @@
+# final version with separate backpack and warehouse
+
 import pygame
 import sys
 import time
@@ -160,6 +162,8 @@ while not done:
 
 
 
+# LLM控制框架组件（适配 "move_to" 目标指令 + 工具建造）
+
 # def build_full_llm_prompt(env):
 #     def manhattan_dist(p1, p2):
 #         return abs(p1[0] - p2[0]) + abs(p1[1] - p2[1])
@@ -178,13 +182,11 @@ while not done:
 #
 #     lines = []
 #
-#     # 🎯 目标说明
 #     lines.append("🎯 最终目标：采集到 diamond 资源。")
 #     lines.append("💡 注意：agent 走到 diamond 并成功采集即视为完成任务。")
 #     lines.append("🚪 exit 的作用是取出仓库资源，并不表示游戏胜利或结束。")
 #     lines.append("📦 仓库可以由 agent 存入资源，然后任何 agent 从 exit 取出使用。")
 #
-#     # 📋 规则说明
 #     lines.append("\n=== 🔧 资源采集前提规则 ===")
 #     lines.append("1. wood 可直接采集")
 #     lines.append("2. stone 和 coal 需要 wood pickaxe")
@@ -198,7 +200,6 @@ while not done:
 #     lines.append("furnace: 需要 4 stone + table")
 #     lines.append("iron pickaxe: 需要 1 coal + 1 wood + 1 iron + furnace")
 #
-#     # 🤖 agent 状态
 #     lines.append("\n=== 🤖 Agent 状态 ===")
 #     for agent in env.agents:
 #         pos = env.agent_positions[agent]
@@ -206,30 +207,25 @@ while not done:
 #         backpack_str = ", ".join([f"{k}: {v}" for k, v in backpack.items()])
 #         lines.append(f"{agent} 在位置 {list(pos)}，背包资源：{backpack_str}")
 #
-#     # 🗺️ 未采集资源
 #     lines.append("\n=== 🗺️ 地图上的资源位置（未采集） ===")
 #     for res_name, pos_list in env.resources.items():
 #         for i, pos in enumerate(pos_list):
 #             if not env.collected_flags[res_name][i]:
 #                 lines.append(f"{res_name} at {list(pos)}")
 #
-#     # 📦 仓库状态
 #     lines.append(f"\n=== 📦 仓库 ===")
 #     lines.append(f"仓库位置: {list(env.warehouse_position)}")
 #     storage_str = ", ".join([f"{k}: {v}" for k, v in env.warehouse_storage.items()])
 #     lines.append(f"当前资源：{storage_str}")
 #
-#     # 🚪 出口
 #     lines.append(f"\n=== 🚪 出口 ===")
 #     lines.append(f"出口位置: {list(env.exit_position)}")
 #
-#     # 🛠️ 工具状态
 #     lines.append("\n=== 🛠️ 工具状态 ===")
 #     for tool, built in env.tools_built.items():
 #         status = "✅ 已建造" if built else "❌ 未建造"
 #         lines.append(f"{tool}: {status}")
 #
-#     # 📏 距离提示（仅可采资源）
 #     lines.append("\n=== 📏 Agent 到“可采资源”的最短距离 ===")
 #     for agent in env.agents:
 #         agent_pos = env.agent_positions[agent]
@@ -244,7 +240,6 @@ while not done:
 #         dist_summary = ", ".join(dist_info) if dist_info else "无可采资源"
 #         lines.append(f"{agent} 到可采资源最近距离: {dist_summary}")
 #
-#     # 🧩 建造建议
 #     lines.append("\n=== 🧩 建造建议 ===")
 #     tool_priority = ["table", "wood pickaxe", "stone pickaxe", "furnace", "iron pickaxe"]
 #     missing_tools = [tool for tool in tool_priority if not env.tools_built[tool]]
@@ -268,25 +263,59 @@ while not done:
 #         else:
 #             lines.append("✅ 所有建造材料都已具备，可立即建造！")
 #
-#         lines.append("\n=== 📤 输出格式要求（目标驱动） ===")
-#         lines.append("请根据环境状态，为每个 agent 指定一个目标地点，使用如下 JSON 格式：")
-#         lines.append("""
-#         {
-#           "agent_1": {"action": "move_to", "target": [3, 5]},
-#           "agent_2": {"action": "move_to", "target": "warehouse"},
-#           "agent_3": {"action": "move_to", "target": "exit"},
-#           "agent_4": {"action": "noop"}
-#         }
-#         """)
-#         lines.append("说明：")
-#         lines.append("- target 可以是某个具体位置（如 [x, y]），也可以是 'warehouse' 或 'exit'")
-#         lines.append("- build 工具时请使用格式：{\"action\": \"build\", \"tool\": \"stone pickaxe\"}")
-#         lines.append("- noop 表示什么也不做")
-#         lines.append("⚠️ 请确保只返回有效 JSON 对象，不要添加解释说明文字。")
+#     # 📤 输出格式说明（目标坐标为主）
+#     lines.append("\n=== 📤 输出格式要求（目标为位置） ===")
+#     lines.append("请为每个 agent 输出下一步目标，使用如下 JSON 格式：")
+#     lines.append("""
+# {
+#   "agent_1": {"action": "move_to", "target": [3, 5]},
+#   "agent_2": {"action": "build", "tool": "stone pickaxe"},
+#   "agent_3": {"action": "move_to", "target": "exit"},
+#   "agent_4": {"action": "noop"}
+# }
+#     """)
+#     lines.append("说明：")
+#     lines.append("- move_to 的目标可以是 [x, y] 位置，或 'warehouse' 或 'exit'")
+#     lines.append("- build 表示尝试建造工具")
+#     lines.append("- noop 表示不执行操作")
+#     lines.append("⚠️ 请确保返回的是有效 JSON 对象，不能包含其他文字或解释。")
 #
-#         return "\n".join(lines)
+#     return "\n".join(lines)
+#
+#
+# # 计算 agent 当前朝目标前进一步的动作（方向）
+# def navigate_one_step(current_pos, target_pos):
+#     dx = target_pos[0] - current_pos[0]
+#     dy = target_pos[1] - current_pos[1]
+#     if abs(dx) > abs(dy):
+#         return 2 if dx > 0 else 3  # down / up
+#     elif dy != 0:
+#         return 0 if dy > 0 else 1  # right / left
+#     return None  # already at target
+#
+#
+# # 解释 LLM 输出并将其转化为 agent 控制行为（目标规划）
+# def interpret_llm_json(json_obj, env):
+#     move_plan = {}  # agent -> action_id
+#     for agent, cmd in json_obj.items():
+#         if cmd["action"] == "noop":
+#             continue
+#         elif cmd["action"] == "build":
+#             tool = cmd["tool"]
+#             success = env.build_tool(agent, tool)
+#             print(f"{agent} 建造 {tool} -> {'成功' if success else '失败'}")
+#         elif cmd["action"] == "move_to":
+#             target = cmd["target"]
+#             if target == "warehouse":
+#                 target_pos = env.warehouse_position
+#             elif target == "exit":
+#                 target_pos = env.exit_position
+#             else:
+#                 target_pos = target
+#             current_pos = env.agent_positions[agent]
+#             action = navigate_one_step(current_pos, target_pos)
+#             if action is not None:
+#                 move_plan[agent] = action
+#     return move_plan
 
-
-# prompt = build_full_llm_prompt(env.unwrapped)
-# print(prompt)
 

@@ -1,3 +1,4 @@
+# final version with separate backpack and warehouse
 
 import gym
 from gym import spaces
