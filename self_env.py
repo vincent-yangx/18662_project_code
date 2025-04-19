@@ -1,3 +1,4 @@
+# final version with separate backpack and warehouse
 
 import gym
 from gym import spaces
@@ -43,10 +44,6 @@ class MultiAgentResourceEnv(gym.Env):
             "diamond": 2
         }
 
-        self.warehouse_storage = {res: 0 for res in self.resource_counts}
-        self.collection_log = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
-        self.agent_backpack = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
-
         # 工具的建造前提（资源或其他工具）
         self.tool_prerequisite = {
             "table": {"wood": 2},
@@ -62,29 +59,29 @@ class MultiAgentResourceEnv(gym.Env):
         self.reset()
 
     # warehouse 和 exit在一起
-    def _generate_adjacent_positions(self):
-        directions = [np.array([0, 1]), np.array([0, -1]), np.array([1, 0]), np.array([-1, 0])]
-
-        while True:
-            base = np.random.randint(0, self.grid_size, size=(2,))
-            neighbors = [base + d for d in directions]
-            neighbors = [n for n in neighbors if 0 <= n[0] < self.grid_size and 0 <= n[1] < self.grid_size]
-
-            np.random.shuffle(neighbors)  # 随机挑邻居
-
-            for adj in neighbors:
-                # 检查 base 和 adj 是否与 agent 起始点、资源点冲突
-                conflict = False
-
-                occupied_positions = list(self.agent_positions.values())
-                for lst in self.resources.values():
-                    occupied_positions += lst
-
-                if any(np.array_equal(base, pos) or np.array_equal(adj, pos) for pos in occupied_positions):
-                    conflict = True
-
-                if not conflict:
-                    return base, adj  # ✅ 成功生成一对不冲突的邻接点
+    # def _generate_adjacent_positions(self):
+    #     directions = [np.array([0, 1]), np.array([0, -1]), np.array([1, 0]), np.array([-1, 0])]
+    #
+    #     while True:
+    #         base = np.random.randint(0, self.grid_size, size=(2,))
+    #         neighbors = [base + d for d in directions]
+    #         neighbors = [n for n in neighbors if 0 <= n[0] < self.grid_size and 0 <= n[1] < self.grid_size]
+    #
+    #         np.random.shuffle(neighbors)  # 随机挑邻居
+    #
+    #         for adj in neighbors:
+    #             # 检查 base 和 adj 是否与 agent 起始点、资源点冲突
+    #             conflict = False
+    #
+    #             occupied_positions = list(self.agent_positions.values())
+    #             for lst in self.resources.values():
+    #                 occupied_positions += lst
+    #
+    #             if any(np.array_equal(base, pos) or np.array_equal(adj, pos) for pos in occupied_positions):
+    #                 conflict = True
+    #
+    #             if not conflict:
+    #                 return base, adj  # ✅ 成功生成一对不冲突的邻接点
 
     def get_grid_matrix(self):
         grid = np.zeros((self.grid_size, self.grid_size), dtype=np.int32)
@@ -111,13 +108,19 @@ class MultiAgentResourceEnv(gym.Env):
                         self.resources[res_name].append(pos)
                         break
 
-        self.warehouse_position, self.exit_position = self._generate_adjacent_positions()
+        # self.warehouse_position, self.exit_position = self._generate_adjacent_positions()
 
+        self.collection_log = {
+            agent: {res: 0 for res in self.resource_counts}
+            for agent in self.agents
+        }
 
         self.collected_flags = {res: [False]*len(pos_list) for res, pos_list in self.resources.items()}
-        self.agent_backpack = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
-        self.warehouse_storage = {res: 0 for res in self.resource_counts}
-        self.collection_log = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
+        self.shared_resource_pool = {res: 0 for res in self.resource_counts}
+
+        # self.agent_backpack = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
+        # self.warehouse_storage = {res: 0 for res in self.resource_counts}
+        # self.collection_log = {agent: {res: 0 for res in self.resource_counts} for agent in self.agents}
 
         self.tools_built = {tool: False for tool in self.tool_prerequisite}
 
@@ -130,7 +133,7 @@ class MultiAgentResourceEnv(gym.Env):
                 if not self.tools_built[req]:
                     return False
             else:
-                if self.agent_backpack[agent][req] < count:
+                if self.shared_resource_pool[req] < count:
                     return False
         return True
 
@@ -138,7 +141,7 @@ class MultiAgentResourceEnv(gym.Env):
         if self.can_build_tool(agent, tool_name) and not self.tools_built[tool_name]:
             for req, count in self.tool_prerequisite[tool_name].items():
                 if req not in self.tools_built:
-                    self.agent_backpack[agent][req] -= count  # ✅ 扣除资源
+                    self.shared_resource_pool[req] -= count
             self.tools_built[tool_name] = True
             return True
         return False
@@ -167,40 +170,15 @@ class MultiAgentResourceEnv(gym.Env):
             for i, pos in enumerate(pos_list):
                 if np.array_equal(self.agent_positions[agent], pos) and not self.collected_flags[res_name][i]:
                     if self._can_collect(agent, res_name):
-                        self.agent_backpack[agent][res_name] += 1
+                        self.shared_resource_pool[res_name] += 1
                         self.collected_flags[res_name][i] = True
                         reward = 10
                         message = f"{agent} 成功收集了 {res_name}!"
+                        self.collection_log[agent][res_name] += 1
 
                         if res_name == "diamond":
                             done = True
                             message += f"\n💎 diamond 已被采集，游戏结束！"
-
-        # 存入仓库
-        if np.array_equal(self.agent_positions[agent], self.warehouse_position):
-            stored_any = False
-            for res in self.resource_counts:
-                amount = self.agent_backpack[agent][res]
-                if amount > 0:
-                    self.warehouse_storage[res] += amount
-                    self.collection_log[agent][res] += amount
-                    self.agent_backpack[agent][res] = 0
-                    stored_any = True
-            if stored_any:
-                message += f"\n🏠 {agent} 将资源存入仓库！"
-
-        if np.array_equal(self.agent_positions[agent], self.exit_position):
-            # 将 warehouse 所有资源转移到 agent 背包
-            for res in self.warehouse_storage:
-                amount = self.warehouse_storage[res]
-                if amount > 0:
-                    self.agent_backpack[agent][res] += amount
-                    self.warehouse_storage[res] = 0
-
-            # 打印资源转移信息
-            message += f"\n🚪 {agent} 走入出口，领取所有仓库资源！"
-            message += f"\n🎒 {agent} 当前资源: {[self.agent_backpack[agent][res] for res in self.warehouse_storage]}"
-            message += f"\n📦 仓库当前资源: {[self.warehouse_storage[res] for res in self.warehouse_storage]}"
 
         return self.agent_positions, reward, done, message
 
@@ -227,6 +205,28 @@ class MultiAgentResourceEnv(gym.Env):
                 return False
         return True
 
+    def print_shared_resources(self):
+        print("📦 当前全局资源池：")
+        for k, v in self.shared_resource_pool.items():
+            print(f"  {k}: {v}")
+
+        print("\n📈 各 Agent 采集记录：")
+        for agent, res_dict in self.collection_log.items():
+            res_str = ", ".join([f"{res}: {count}" for res, count in res_dict.items()])
+            print(f"  {agent}: {res_str}")
+
+    def get_env_state_summary(self):
+        summary = []
+        for agent in self.agents:
+            pos = self.agent_positions[agent]
+            summary.append(f"{agent} 位置: {list(pos)}")
+        for k, v in self.shared_resource_pool.items():
+            summary.append(f"资源 {k}: {v}")
+        for tool, built in self.tools_built.items():
+            status = "✅" if built else "❌"
+            summary.append(f"工具 {tool}: {status}")
+        return "\n".join(summary)
+
     def render(self, screen=None):
         if screen is None:
             if not hasattr(self, "_screen"):
@@ -246,8 +246,8 @@ class MultiAgentResourceEnv(gym.Env):
                 if not self.collected_flags[res][i]:
                     screen.blit(self.assets[res], (pos[1]*cell_size, pos[0]*cell_size))
 
-        screen.blit(self.assets["warehouse"], (self.warehouse_position[1]*cell_size, self.warehouse_position[0]*cell_size))
-        screen.blit(self.assets["exit"], (self.exit_position[1] * cell_size, self.exit_position[0] * cell_size))
+        # screen.blit(self.assets["warehouse"], (self.warehouse_position[1]*cell_size, self.warehouse_position[0]*cell_size))
+        # screen.blit(self.assets["exit"], (self.exit_position[1] * cell_size, self.exit_position[0] * cell_size))
 
         for agent in self.agents:
             pos = self.agent_positions[agent]
