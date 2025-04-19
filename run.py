@@ -5,10 +5,118 @@ import sys
 import time
 import self_env  # 注册环境
 import gym
-# import numpy as np
+import numpy as np
+import random
+import sys
+import json
+import pygame
+
+from self_env import MultiAgentResourceEnv
+from pydantic import BaseModel
+from openai import OpenAI
+from typing import Literal, Optional, List
+
+pygame.init()
+env = MultiAgentResourceEnv()
+
+current_agent_index = 0
+agent_list = ["agent_1", "agent_2", "agent_3", "agent_4"]
+
+res_order = ["wood", "stone", "iron", "coal", "diamond"]
+
+def build_planner_input(env, warehouse_summary):
+    grid = env.get_grid_matrix().tolist()
+    agents = {}
+    for i, row in enumerate(grid):
+        for j, cell in enumerate(row):
+            if cell == -1:
+                agents[f"agent_{len(agents) + 1}"] = [i, j]
+
+    return {
+        "map": grid,
+        "agents": agents,
+        "resources_collected": warehouse_summary,
+        "rules": {
+            "resource_order": ["wood", "stone", "iron", "diamond"],
+            "movement": ["up", "down", "left", "right"],
+            "shared_resources": True
+        }
+    }
 
 
-def build_tool(agent, tool_name):
+def build_prompt():
+    return """You are a centralized planner for a 2D multi-agent resource collection environment.
+
+Given:
+- A 2D map (list of lists) where:
+    - 0 = empty space
+    - -1 = agent position
+    - 1 = wood
+    - 2 = stone
+    - 3 = iron
+    - 4 = diamond
+- Agent positions and current warehouse status (resources collected).
+- Game rules:
+    1. Agents can only move up/down/left/right.
+    2. Agents must collect resources in order: wood → stone → iron → diamond.
+    3. Resources are shared across agents.
+
+Please assign one action per agent. Each action should be either:
+- move: with a direction (up/down/left/right)
+- collect: collect the resource at current position
+- wait: do nothing this turn
+
+Use this structured JSON format:
+{
+  "actions": [
+    {
+      "agent_id": "agent_1",
+      "action": "move",
+      "target": [2, 3],
+      "reason": "moving toward nearest wood"
+    }
+  ]
+}
+Respond with only valid JSON.
+"""
+
+# ----------- Models -----------
+
+class AgentAction(BaseModel):
+    agent_id: Literal["agent_1", "agent_2", "agent_3", "agent_4"]
+    action: Literal["move", "collect", "create", "wait"]
+    target_pos: Optional[List[int]] = None
+    target_resource: Optional[Literal["wood", "stone", "coal", "diamond"]] = None
+    target_tool: Optional[Literal["table", "wood pickaxe", "stone pickaxe", "furnace", "iron pickaxe"]] = None
+    reason: str
+    # direction: Optional[Literal["up", "down", "left", "right"]] = None
+
+
+class AgentPlan(BaseModel):
+    actions: List[AgentAction]
+
+
+# ----------- GPT Planning Function -----------
+
+client = OpenAI(api_key="replace your api here")
+
+def ask_gpt_to_plan(client, env, warehouse_summary):
+    planner_input = build_planner_input(env, warehouse_summary)  # I think memory should be passed here
+    system_prompt = build_prompt()
+
+    response = client.beta.chat.completions.parse(
+        model="gpt-4.1-nano-2025-04-14",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": json.dumps(planner_input)}
+        ],
+        response_format=AgentPlan,
+    )
+
+    return response.choices[0].message.parsed
+
+
+
     if env.unwrapped.build_tool(agent, tool_name):
         print(f"✅ {agent} 成功制造了 {tool_name}！")
     else:
@@ -21,6 +129,7 @@ def build_tool(agent, tool_name):
 
 
 # 初始化 pygame 和环境
+
 pygame.init()
 env = gym.make('CustomMultiAgentEnv-v0')
 
@@ -300,5 +409,6 @@ while not done:
 #             if action is not None:
 #                 move_plan[agent] = action
 #     return move_plan
+
 
 
