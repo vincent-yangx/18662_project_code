@@ -8,27 +8,13 @@ import gym
 # import numpy as np
 
 
-def get_backpack_vec(agent):
-    return [env.unwrapped.agent_backpack[agent][res] for res in res_order]
-
-def print_warehouse_info():
-    print("\n📦 仓库资源总量:")
-    total_vec = [env.unwrapped.warehouse_storage[res] for res in res_order]
-    print(f"  [wood, stone, iron, diamond]: {total_vec}")
-
-    # print("\n📦 仓库资源贡献来源:")
-    # for a in all_agents:
-    #     contrib_vec = [env.unwrapped.collection_log[a][res] for res in res_order]
-    #     print(f"  {a}: {contrib_vec}")
-
 def build_tool(agent, tool_name):
     if env.unwrapped.build_tool(agent, tool_name):
         print(f"✅ {agent} 成功制造了 {tool_name}！")
     else:
         print(f"❌ {agent} 无法制造 {tool_name}。")
 
-    print(f"🎒 {agent} 当前背包资源: {get_backpack_vec(agent)}")
-
+    env.unwrapped.print_shared_resources()
     print("\n🛠️ 工具状态：")
     for tool, built in env.unwrapped.tools_built.items():
         print(f"  {tool}: {'✅' if built else '❌'}")
@@ -124,13 +110,10 @@ while not done:
                 pos, reward, agent_done, message = env.unwrapped.step(agent, action)
                 done = done or agent_done
 
-                if any(keyword in message for keyword in ["成功收集了", "存入仓库", "走入出口"]):
+                if "成功收集了" in message:
                     print(f"\n🧭 {agent} moved to {pos[agent]}")
                     print(f"📣 {message}")
-                    print(f"🎒 {agent} 背包资源: {get_backpack_vec(agent)}")
-
-                    if "存入仓库" in message:
-                        print_warehouse_info()
+                    env.unwrapped.print_shared_resources()
 
                     if done:
                         print("\n🎉 游戏结束！")
