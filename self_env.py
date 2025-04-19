@@ -4,6 +4,8 @@ from gym import spaces
 import numpy as np
 import pygame
 import sys
+from collections import deque
+import heapq
 
 from gym.envs.registration import register
 register(
@@ -16,6 +18,7 @@ class MultiAgentResourceEnv(gym.Env):
 
     def __init__(self):
         super(MultiAgentResourceEnv, self).__init__()
+        self.current_agent = None
         self.agents = ["agent_1", "agent_2", "agent_3", "agent_4"]
         self.grid_size = 20
         self.observation_space = spaces.Dict({
@@ -83,6 +86,19 @@ class MultiAgentResourceEnv(gym.Env):
                 if not conflict:
                     return base, adj  # ✅ 成功生成一对不冲突的邻接点
 
+    def get_grid_matrix(self):
+        grid = np.zeros((self.grid_size, self.grid_size), dtype=np.int32)
+        resource_map = {"wood": 1, "stone": 2, "iron": 3, "diamond": 4, "coal": 5, "warehouse": 6, "exit": 7}
+
+        for res_type, positions in self.resources.items():
+            for x, y in positions:
+                grid[x, y] = resource_map[res_type]
+
+        for pos in self.agent_positions.values():
+            grid[pos[0], pos[1]] = -1  # agent覆盖
+
+        return grid
+
     def reset(self):
         self.agent_positions = {agent: np.array([0, 0]) for agent in self.agents}
         self.resources = {}
@@ -130,14 +146,16 @@ class MultiAgentResourceEnv(gym.Env):
     def get_tool_status(self):
         return {tool: self.tools_built[tool] for tool in self.tool_prerequisite}
 
-    def step(self, agent, action):
+    def step(self, action):
+        if self.current_agent is None:
+            raise ValueError("当前没有 agent 被选中！")
+        agent = self.current_agent
         movement = {
             0: np.array([0, 1]),
             1: np.array([0, -1]),
             2: np.array([1, 0]),
             3: np.array([-1, 0])
         }
-
         self.agent_positions[agent] += movement[action]
         self.agent_positions[agent] = np.clip(self.agent_positions[agent], 0, self.grid_size - 1)
 
@@ -186,6 +204,13 @@ class MultiAgentResourceEnv(gym.Env):
 
         return self.agent_positions, reward, done, message
 
+    def print_collected_summary(self):
+        # print("Collected Materials")
+        # for res, count in self.collected_resources.items():
+        #     print(f"- {res}: {count}")
+
+        return dict(self.resource_counts)
+
     def _can_collect(self, agent, resource):
         # 每个资源需要的“前置工具”
         required_tools = {
@@ -229,6 +254,52 @@ class MultiAgentResourceEnv(gym.Env):
             screen.blit(self.assets[agent], (pos[1]*cell_size, pos[0]*cell_size))
 
         pygame.display.flip()
+    def get_shortest_path(self, start, goal):
+        """
+        A* algorithm to find the shortest path from `start` to `goal`.
+        Returns a list of action integers (0=right, 1=left, 2=down, 3=up).
+        """
+
+        direction_map = {
+            (0, 1): 0,    # right
+            (0, -1): 1,   # left
+            (1, 0): 2,    # down
+            (-1, 0): 3    # up
+        }
+
+        def heuristic(a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])  # Manhattan distance
+
+        start = tuple(start)
+        goal = tuple(goal)
+        open_set = []
+        heapq.heappush(open_set, (heuristic(start, goal), 0, start, []))
+        visited = set()
+
+        while open_set:
+            _, cost, current, path = heapq.heappop(open_set)
+
+            if current in visited:
+                continue
+            visited.add(current)
+
+            if current == goal:
+                return path  # List of action integers
+
+            for (dx, dy), action_id in direction_map.items():
+                nx, ny = current[0] + dx, current[1] + dy
+                next_pos = (nx, ny)
+
+                if 0 <= nx < self.grid_size and 0 <= ny < self.grid_size:
+                    if next_pos in visited:
+                        continue
+
+                    new_cost = cost + 1
+                    priority = new_cost + heuristic(next_pos, goal)
+                    heapq.heappush(open_set, (priority, new_cost, next_pos, path + [action_id]))
+
+        return []  # No path found
 
     def close(self):
         pygame.quit()
+
